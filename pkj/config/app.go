@@ -11,7 +11,7 @@ import (
 var db *sql.DB
 
 func Connect() {
-	database, err := sql.Open("mysql", "root:2231@/bookmanagmentsystemdb")
+	database, err := sql.Open("mysql", "root:test@/bookmanagmentsystemdb")
 	if err != nil {
 		log.Fatal(err)
 	}
