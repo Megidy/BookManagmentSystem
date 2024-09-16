@@ -35,12 +35,7 @@ func SignUp(c *gin.Context) {
 	}
 
 	hash, err := utils.HashPassword(user.Password)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "failed to hash password",
-		})
-		return
-	}
+	utils.HandleError(c, err, "failed to hash password", http.StatusBadRequest)
 
 	NewUser := models.User{
 		Username: user.Username,
@@ -48,26 +43,17 @@ func SignUp(c *gin.Context) {
 		Role:     user.Role,
 	}
 	ok, err := models.IsSignedUp(&NewUser)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err,
-		})
-		return
-	}
+	utils.HandleError(c, err, "didnt check if user signed up ", http.StatusBadRequest)
+
 	if ok {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "user is with this name is already signed up",
 		})
-		return
+		c.Abort()
 	}
 
 	err = models.CreateUser(&NewUser)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err,
-		})
-		return
-	}
+	utils.HandleError(c, err, "failed to crate user", http.StatusBadRequest)
 
 }
 func LogIn(c *gin.Context) {
@@ -77,50 +63,30 @@ func LogIn(c *gin.Context) {
 	//	"password":"..."
 	//}
 	err := c.ShouldBindJSON(&NewUserRequest)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Bad request",
-		})
-		return
-	}
+	utils.HandleError(c, err, "Bad request", http.StatusBadRequest)
+
 	ok, err := models.IsSignedUp(&NewUserRequest)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err,
-		})
-		return
-	}
+	utils.HandleError(c, err, "didnt find signed user ", http.StatusBadRequest)
+
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "didnt find user with this username",
 		})
-		return
+		c.Abort()
 	}
 	user, err := models.FindUser(&NewUserRequest)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err,
-		})
-		return
-	}
+	utils.HandleError(c, err, "didnt find user in db", http.StatusBadRequest)
+
 	err = utils.UnHashPassword([]byte(user.Password), []byte(NewUserRequest.Password))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err,
-		})
-		return
-	}
+	utils.HandleError(c, err, "Bad request", http.StatusBadRequest)
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": user.Id,
 		"exp": time.Now().Add(time.Hour * 24 * 15).Unix(),
 	})
 	tokenString, err := token.SignedString([]byte(os.Getenv("SECRET")))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err,
-		})
-		return
-	}
+	utils.HandleError(c, err, "Bad request", http.StatusBadRequest)
+
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("Authorization", tokenString, 3600*24*15, "", "", false, true)
 
@@ -136,32 +102,20 @@ func DeleteUserAdmin(c *gin.Context) {
 	if user.(*models.User).Role == "admin" {
 		id := c.Param("userId")
 		userId, err := strconv.Atoi(id)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err,
-			})
-			return
-		}
+		utils.HandleError(c, err, "failed to converte to int ", http.StatusBadRequest)
+
 		user2, err := models.FindUserById(float64(userId))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": err,
-			})
-			return
-		}
+		utils.HandleError(c, err, "didnt find user in db", http.StatusInternalServerError)
+
 		if user2.Role == "admin" {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "cant delete admin",
 			})
-			return
+			c.Abort()
 		} else {
 			err = models.DeleteUser(userId)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error": err,
-				})
-				return
-			}
+			utils.HandleError(c, err, "didnt delete user in db", http.StatusInternalServerError)
+
 			c.JSON(http.StatusOK, gin.H{
 				"successful": "account has been deleted",
 			})
@@ -184,46 +138,26 @@ func UpdateUserInfo(c *gin.Context) {
 		return
 	}
 	err := c.ShouldBindJSON(&NewRequest)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "bad request",
-		})
-		return
-	}
+	utils.HandleError(c, err, "Bad request", http.StatusBadRequest)
+
 	if user.(*models.User).Role == "admin" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "cant change admins info",
 		})
-		return
+		c.Abort()
 	} else {
 		user2, err := models.FindUserById(float64(user.(*models.User).Id))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": err,
-			})
-			return
-		}
+		utils.HandleError(c, err, "didnt find user ", http.StatusInternalServerError)
+
 		err = utils.UnHashPassword([]byte(user2.Password), []byte(NewRequest.OldPassword))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "Bad request",
-			})
-			return
-		}
+		utils.HandleError(c, err, "Bad request", http.StatusBadRequest)
+
 		hash, err := utils.HashPassword(NewRequest.NewPassword)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "failed to hash password",
-			})
-		}
+		utils.HandleError(c, err, "failed to hash password", http.StatusBadRequest)
 
 		err = models.ChangeInfo(hash, user.(*models.User).Id, NewRequest.NewUsername)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": err,
-			})
-			return
-		}
+		utils.HandleError(c, err, "didnt change info ", http.StatusInternalServerError)
+
 		c.JSON(http.StatusOK, gin.H{
 			"successful": "you changed your info",
 		})
@@ -237,12 +171,8 @@ func GetAllUser(c *gin.Context) {
 	}
 	if user.(*models.User).Role == "admin" {
 		users, err := models.GetAllUsers()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": err,
-			})
-			return
-		}
+		utils.HandleError(c, err, "didnt retrieve users from db ", http.StatusInternalServerError)
+
 		c.JSON(http.StatusOK, gin.H{
 			"users": users,
 		})
@@ -258,38 +188,26 @@ func DeleteAccount(c *gin.Context) {
 	}
 	var NewUserRequest models.User
 	err := c.ShouldBindJSON(&NewUserRequest)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "bad Request",
-		})
-		return
-	}
+	utils.HandleError(c, err, "Bad request", http.StatusBadRequest)
+
 	usertemp, err := models.FindUserById(float64(user.(*models.User).Id))
 	if usertemp.Role == "admin" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "you can`t delete admin ((",
 		})
+		c.Abort()
 	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err,
 		})
-		return
+		c.Abort()
 	}
 	err = utils.UnHashPassword([]byte(usertemp.Password), []byte(NewUserRequest.Password))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Bad request",
-		})
-		return
-	}
+	utils.HandleError(c, err, "Bad request", http.StatusBadRequest)
+
 	err = models.DeleteUser(user.(*models.User).Id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err,
-		})
-		return
-	}
+	utils.HandleError(c, err, "didnt delete user from db", http.StatusInternalServerError)
 
 	c.JSON(http.StatusOK, gin.H{
 		"successful": "you deleted your account",

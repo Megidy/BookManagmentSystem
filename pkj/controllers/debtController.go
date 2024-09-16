@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/Megidy/BookManagmentSystem/pkj/models"
+	"github.com/Megidy/BookManagmentSystem/pkj/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,13 +17,8 @@ func CheckDebts(c *gin.Context) {
 	}
 	if user.(*models.User).Role == "admin" {
 		debts, err := models.GetAllDebts()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": err,
-			})
-			return
+		utils.HandleError(c, err, "didnt retrieve any data from db", http.StatusInternalServerError)
 
-		}
 		c.JSON(http.StatusOK, gin.H{
 			"all debts": debts,
 		})
@@ -40,13 +36,8 @@ func CheckUsersDebt(c *gin.Context) {
 	} else {
 
 		debts, err := models.GetAllUsersDebts(user.(*models.User))
+		utils.HandleError(c, err, "didnt get any of debts from  db", http.StatusInternalServerError)
 
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"Error": err,
-			})
-			return
-		}
 		c.JSON(http.StatusOK, gin.H{
 			"your current debts:": debts,
 		})

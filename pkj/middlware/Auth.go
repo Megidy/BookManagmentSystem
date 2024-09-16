@@ -15,7 +15,7 @@ func RequireAuth(c *gin.Context) {
 	tokenstring, err := c.Cookie("Authorization")
 	if err != nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
-		return
+
 	}
 	token, err := jwt.Parse(tokenstring, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -34,7 +34,7 @@ func RequireAuth(c *gin.Context) {
 		user, err := models.FindUserById(claims["sub"].(float64))
 		if err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
-			return
+
 		}
 		c.Set("user", user)
 		c.Next()
